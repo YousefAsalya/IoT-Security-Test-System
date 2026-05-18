@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+
+  vulnerable-api:
+    build: ./vulnerable-api
+    container_name: iot-vulnerable-api
+    ports:
+      - "8888:8888"
+    restart: unless-stopped
+
+  vulnerable-ssh:
+    build: ./vulnerable-ssh
+    container_name: iot-vulnerable-ssh
+    ports:
+      - "2222:22"
+    restart: unless-stopped
+
+  vulnerable-mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: iot-vulnerable-mqtt
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./vulnerable-mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: unless-stopped

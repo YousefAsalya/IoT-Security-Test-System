@@ -1,0 +1,222 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --blue:#2563eb;--blue-dark:#1d4ed8;--blue-light:#dbeafe;
+  --red:#dc2626;--red-light:#fef2f2;
+  --green:#16a34a;--green-light:#dcfce7;
+  --orange:#ea580c;--orange-light:#fff7ed;
+  --purple:#7c3aed;--purple-light:#f5f3ff;
+  --yellow:#ca8a04;--yellow-light:#fefce8;
+  --gray:#6b7280;--gray-light:#f9fafb;
+  --bg:#f1f5f9;--card:#fff;--border:#e5e7eb;
+  --text:#111827;--muted:#6b7280;--radius:12px;
+}
+
+body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;background:var(--bg);color:var(--text);line-height:1.6}
+
+/* ── HEADER ── */
+.header{position:fixed;top:0;left:0;right:0;height:56px;background:#0f172a;display:flex;align-items:center;justify-content:space-between;padding:0 28px;z-index:200;box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.header-brand{display:flex;align-items:center;gap:12px;color:#fff;font-size:15px;font-weight:700;letter-spacing:-.2px}
+.header-brand i{color:#60a5fa;font-size:20px}
+.header-right{display:flex;align-items:center;gap:10px}
+.header-badge{background:#1e3a5f;color:#93c5fd;font-size:11px;padding:3px 12px;border-radius:99px;font-weight:600;letter-spacing:.4px}
+.header-env-badge{background:#064e3b;color:#6ee7b7;font-size:11px;padding:3px 12px;border-radius:99px;font-weight:600;cursor:pointer}
+
+/* ── LAYOUT ── */
+.page{max-width:1020px;margin:0 auto;padding:72px 16px 64px}
+
+/* ── CARD ── */
+.card{background:var(--card);border-radius:var(--radius);box-shadow:0 1px 4px rgba(0,0,0,.07);padding:24px 28px;margin-bottom:20px;border:1px solid var(--border)}
+
+/* ── SCAN FORM ── */
+.form-title{font-size:18px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:10px}
+.form-sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+.form-row{display:flex;gap:10px;flex-wrap:wrap}
+.form-row input{flex:2;min-width:150px;height:42px;border:1.5px solid var(--border);border-radius:8px;padding:0 14px;font-size:14px;outline:none;transition:.18s;background:#fff}
+.form-row input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.btn-scan{flex:1;min-width:130px;height:42px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.18s}
+.btn-scan:hover{background:var(--blue-dark)}
+.btn-scan:disabled{background:#93c5fd;cursor:not-allowed}
+.scan-warn{font-size:12px;color:#92400e;margin-top:10px;display:flex;align-items:center;gap:6px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px}
+
+/* ── ERROR BOX ── */
+#error-box{display:none;margin-top:16px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:16px 20px}
+.err-title{font-size:14px;font-weight:700;color:#b91c1c;display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.err-body{font-size:13px;color:#7f1d1d;line-height:1.6}
+.err-tips{margin-top:8px;padding-left:18px}
+.err-tips li{font-size:12px;color:#991b1b;margin-bottom:3px}
+
+/* ── PROGRESS ── */
+#scan-progress{display:none;margin-top:18px}
+.prog-track{height:4px;background:#e5e7eb;border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;background:var(--blue);border-radius:99px;animation:slide 1.6s ease-in-out infinite;width:35%}
+@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(380%)}}
+.prog-msg{font-size:12px;color:var(--muted);margin-top:8px;min-height:18px}
+
+/* ── RESULTS PANEL ── */
+#results-panel{display:none}
+
+/* ── SCORE BANNER ── */
+.score-top{background:#0f172a;border-radius:12px 12px 0 0;padding:24px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.score-meta .dev-name{font-size:20px;font-weight:700;color:#fff}
+.score-meta .dev-ip{font-size:13px;color:#94a3b8;margin-top:2px}
+.score-meta .dev-date{font-size:12px;color:#64748b;margin-top:2px}
+.score-meta .dev-reach{font-size:11px;color:#475569;margin-top:4px;display:flex;align-items:center;gap:5px}
+.score-circle{width:88px;height:88px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;flex-shrink:0}
+.score-circle .sc-pct{font-size:10px;font-weight:500;opacity:.8;margin-top:2px}
+.verdict-bar{padding:10px 28px;font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:0}
+.v-green{background:#dcfce7;color:#166534;border-radius:0 0 12px 12px}
+.v-orange{background:#fff7ed;color:#9a3412;border-radius:0 0 12px 12px}
+.v-red{background:#fef2f2;color:#991b1b;border-radius:0 0 12px 12px}
+
+/* ── STATS ROW ── */
+.stats-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.stat-box{flex:1;min-width:110px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center}
+.s-num{font-size:24px;font-weight:800}
+.s-lbl{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+.s-green{color:var(--green)}.s-red{color:var(--red)}.s-orange{color:var(--orange)}.s-blue{color:var(--blue)}.s-gray{color:var(--gray)}
+
+/* ── ACTION BUTTONS ── */
+.action-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+.btn-act{border:1.5px solid var(--blue);color:var(--blue);background:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.18s}
+.btn-act:hover{background:var(--blue);color:#fff}
+
+/* ── SECTION TITLE ── */
+.section-title{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';display:block;width:4px;height:18px;background:var(--blue);border-radius:99px}
+
+/* ── CHECK CARDS ── */
+.checks-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:28px}
+.check-card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.check-card.implemented.pass  .check-card-header{border-left:4px solid var(--green)}
+.check-card.implemented.fail  .check-card-header{border-left:4px solid var(--red)}
+.check-card.implemented.error .check-card-header{border-left:4px solid var(--gray)}
+.check-card.not-implemented   .check-card-header{border-left:4px solid #d1d5db;background:#f9fafb}
+.check-card-header{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;cursor:pointer;user-select:none;transition:.15s}
+.check-card-header:hover{background:#f8fafc}
+.cc-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cc-icon{font-size:17px}
+.cc-icon.pass{color:var(--green)}.cc-icon.fail{color:var(--red)}.cc-icon.na{color:#9ca3af}.cc-icon.error{color:var(--gray)}
+.cc-id{background:#f1f5f9;color:#475569;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.3px}
+.cc-name{font-size:13px;font-weight:700}
+.cc-owasp{font-size:11px;color:var(--muted)}
+.cc-right{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.status-pill{font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;letter-spacing:.3px}
+.pill-pass{background:#dcfce7;color:#15803d}
+.pill-fail{background:#fef2f2;color:#b91c1c}
+.pill-na{background:#f3f4f6;color:#6b7280}
+.pill-error{background:#fafafa;color:#6b7280}
+.sev-pill{font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px}
+.sev-critical{background:#fdf2f8;color:#9d174d}
+.sev-high{background:#fef2f2;color:#b91c1c}
+.sev-medium{background:#fffbeb;color:#b45309}
+.sev-low{background:#f0fdf4;color:#15803d}
+.sev-info{background:#f0f9ff;color:#0369a1}
+.score-bar-wrap{display:flex;align-items:center;gap:6px;min-width:100px}
+.score-bar-track{flex:1;height:5px;background:#e5e7eb;border-radius:99px;overflow:hidden}
+.score-bar-fill{height:100%;border-radius:99px;transition:width .4s}
+.score-bar-val{font-size:10px;font-weight:700;color:var(--muted);min-width:28px;text-align:right}
+.cc-chevron{color:var(--muted);transition:transform .2s;font-size:12px}
+.duration-badge{font-size:10px;color:#9ca3af;background:#f9fafb;border:1px solid #e5e7eb;border-radius:99px;padding:2px 8px}
+
+/* ── CHECK BODY ── */
+.check-body{display:none;padding:0 18px 18px;border-top:1px solid #f1f5f9}
+.check-body.open{display:block}
+
+/* Scan summary boxes */
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:14px}
+.summary-box{background:#f8fafc;border-radius:8px;padding:10px 12px}
+.summary-box .sb-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px}
+.summary-box .sb-val{font-size:12px;color:var(--text);line-height:1.5;word-break:break-word}
+
+/* Findings list */
+.findings-section{margin-top:14px}
+.findings-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#b91c1c;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.finding-item{border:1px solid #fecaca;border-radius:8px;padding:12px 14px;margin-bottom:8px;background:#fffafa}
+.finding-item.risk-Critical{border-color:#f87171;background:#fff5f5}
+.finding-item.risk-High{border-color:#fca5a5;background:#fffafa}
+.finding-item.risk-Medium{border-color:#fde68a;background:#fffef0}
+.finding-item.risk-Low{border-color:#bbf7d0;background:#f0fdf4}
+.finding-item.risk-Info{border-color:#bae6fd;background:#f0f9ff}
+.finding-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.finding-title{font-size:12px;font-weight:700;color:var(--text)}
+.finding-cvss{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.cvss-critical{background:#9d174d;color:#fff}.cvss-high{background:#b91c1c;color:#fff}
+.cvss-medium{background:#b45309;color:#fff}.cvss-low{background:#15803d;color:#fff}
+.cvss-info{background:#0369a1;color:#fff}
+.finding-desc{font-size:11px;color:#4b5563;line-height:1.6;margin-bottom:4px}
+.finding-meta{font-size:10px;color:#9ca3af;font-family:monospace}
+
+/* Technical detail */
+.tech-box{background:#f8fafc;border-radius:8px;padding:12px 14px;margin-top:12px;border-left:3px solid var(--blue)}
+.tech-box .tb-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--blue);margin-bottom:5px}
+.tech-box .tb-text{font-size:12px;color:var(--text);line-height:1.6}
+
+/* Risk box */
+.risk-box{background:#fdf4ff;border:1px solid #e9d5ff;border-radius:8px;padding:12px 14px;margin-top:10px}
+.risk-box .rb-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--purple);margin-bottom:5px}
+.risk-box .rb-text{font-size:12px;color:#4c1d95;line-height:1.6}
+
+/* Remediation */
+.remed-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;margin-top:10px}
+.remed-box .rem-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#166534;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.remed-box ol{padding-left:16px;margin:0}
+.remed-box li{font-size:12px;color:#14532d;line-height:1.7;margin-bottom:3px}
+
+/* Not-implemented card body */
+.exclusion-box{margin-top:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px}
+.exclusion-box .ex-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:6px}
+.exclusion-box .ex-text{font-size:12px;color:#6b7280;line-height:1.6}
+
+/* ── COVERAGE ANALYSIS TABLE ── */
+.coverage-table{width:100%;border-collapse:collapse;font-size:12px}
+.coverage-table th{text-align:left;padding:9px 12px;background:#f8fafc;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border)}
+.coverage-table td{padding:9px 12px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+.coverage-table tr:last-child td{border-bottom:none}
+.impl-yes{color:var(--green);font-weight:700}
+.impl-no{color:var(--gray)}
+
+/* ── HISTORY TABLE ── */
+.history-wrap{overflow-x:auto}
+.hist-table{border-collapse:collapse;width:100%;font-size:13px}
+.hist-table th{text-align:left;padding:10px 12px;background:#f8fafc;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.hist-table td{padding:10px 12px;border-bottom:1px solid #f1f5f9}
+.hist-table tr:hover td{background:#fafbff}
+.sc-pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;color:#fff}
+.sc-g{background:#16a34a}.sc-o{background:#ea580c}.sc-r{background:#dc2626}
+.btn-view{border:1px solid var(--blue);color:var(--blue);background:transparent;border-radius:6px;padding:3px 11px;font-size:11px;cursor:pointer;transition:.15s}
+.btn-view:hover{background:var(--blue);color:#fff}
+.btn-del{border:1px solid #fca5a5;color:#b91c1c;background:transparent;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;transition:.15s;margin-left:4px}
+.btn-del:hover{background:#fef2f2}
+
+/* ── MODAL ── */
+#json-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;align-items:center;justify-content:center}
+#json-modal.open{display:flex}
+.modal-box{background:#fff;border-radius:12px;width:92%;max-width:740px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-hdr{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border);font-weight:700;font-size:14px}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1}
+.modal-body{overflow-y:auto;padding:16px}
+.modal-body pre{background:#0f172a;color:#e2e8f0;padding:18px;border-radius:8px;font-family:'Courier New',monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  .form-row{flex-direction:column}
+  .stats-row{gap:6px}
+  .stat-box{min-width:calc(50% - 3px)}
+  .action-row{flex-direction:column}
+  .score-top{flex-direction:column}
+  .cc-right{flex-wrap:wrap}
+  .score-bar-wrap{display:none}
+  .summary-grid{grid-template-columns:1fr 1fr}
+}
+
+/* ── PRINT ── */
+@media print{
+  .header,.action-row,.btn-scan,.btn-view,.btn-del{display:none!important}
+  .check-body{display:block!important}
+  .page{padding-top:10px}
+  .check-card{break-inside:avoid}
+}
+
+/* ── PDF WRAPPER ── */
+#pdf-report{display:none;background:#f1f5f9;padding:20px;font-family:Arial,Helvetica,sans-serif}

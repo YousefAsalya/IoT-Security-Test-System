@@ -1,0 +1,9 @@
+Port 22
+PermitRootLogin yes
+PasswordAuthentication yes
+PermitEmptyPasswords no
+Banner /etc/ssh/banner.txt
+UsePAM no
+LogLevel VERBOSE
+MaxAuthTries 20
+LoginGraceTime 120

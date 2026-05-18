@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>IoT Security Tester — OWASP IoT Top 10</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-brand">
+    <i class="fas fa-satellite-dish"></i>
+    IoT Security Tester
+  </div>
+  <div class="header-right">
+    <span class="header-badge">OWASP IoT Top 10</span>
+    <span class="header-env-badge" onclick="showEnvModal()" title="Test environment info">
+      <i class="fas fa-flask"></i> Test Env
+    </span>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- SCAN FORM -->
+  <div class="card">
+    <div class="form-title">
+      <i class="fas fa-crosshairs" style="color:var(--blue)"></i>
+      Scan a Device
+    </div>
+    <div class="form-sub">
+      Enter the IP address of an IoT device to run an automated security audit against the
+      implemented OWASP IoT Top 10 checks (I1, I2, I3, I7).
+    </div>
+    <div class="form-row">
+      <input type="text" id="input-ip"   placeholder="Device IP — e.g. 192.168.1.1 or 127.0.0.1" autocomplete="off"/>
+      <input type="text" id="input-name" placeholder="Label (optional) — e.g. IoT Gateway" autocomplete="off"/>
+      <button class="btn-scan" id="btn-scan" onclick="startScan()">
+        <i class="fas fa-play"></i> Run Scan
+      </button>
+    </div>
+    <div class="scan-warn">
+      <i class="fas fa-triangle-exclamation"></i>
+      Only scan devices you own or have explicit written authorisation to test.
+      Use <strong>127.0.0.1</strong> to scan the Docker test environment on localhost.
+    </div>
+    <div id="error-box">
+      <div class="err-title"><i class="fas fa-circle-xmark"></i> <span id="err-title-text">Error</span></div>
+      <div class="err-body" id="err-body"></div>
+      <ul class="err-tips" id="err-tips"></ul>
+    </div>
+    <div id="scan-progress">
+      <div class="prog-track"><div class="prog-fill"></div></div>
+      <div class="prog-msg" id="prog-msg">Preparing scan...</div>
+    </div>
+  </div>
+
+  <!-- RESULTS PANEL -->
+  <div id="results-panel">
+
+    <div class="score-top">
+      <div class="score-meta">
+        <div class="dev-name" id="r-name">—</div>
+        <div class="dev-ip"   id="r-ip">—</div>
+        <div class="dev-date" id="r-date">—</div>
+        <div class="dev-reach" id="r-reach"></div>
+      </div>
+      <div class="score-circle" id="r-circle">
+        <span id="r-num">—</span>
+        <span class="sc-pct">Security Score</span>
+      </div>
+    </div>
+    <div class="verdict-bar" id="r-verdict"></div>
+
+    <div class="stats-row" style="margin-top:16px">
+      <div class="stat-box"><div class="s-num s-green"  id="st-pass">0</div><div class="s-lbl">Passed</div></div>
+      <div class="stat-box"><div class="s-num s-red"    id="st-fail">0</div><div class="s-lbl">Failed</div></div>
+      <div class="stat-box"><div class="s-num s-red"    id="st-crit">0</div><div class="s-lbl">Critical</div></div>
+      <div class="stat-box"><div class="s-num s-orange" id="st-high">0</div><div class="s-lbl">High</div></div>
+      <div class="stat-box"><div class="s-num s-gray"   id="st-na">6</div><div class="s-lbl">Out of Scope</div></div>
+      <div class="stat-box"><div class="s-num s-blue"   id="st-impl">4</div><div class="s-lbl">Implemented</div></div>
+    </div>
+
+    <div class="action-row">
+      <button class="btn-act" onclick="downloadPDF()"><i class="fas fa-file-pdf"></i> PDF Report</button>
+      <button class="btn-act" onclick="resetForm()"><i class="fas fa-rotate"></i> New Scan</button>
+      <button class="btn-act" onclick="showJsonModal()"><i class="fas fa-code"></i> Raw JSON</button>
+      <button class="btn-act" onclick="expandAll()"><i class="fas fa-expand"></i> Expand All</button>
+      <button class="btn-act" onclick="collapseAll()"><i class="fas fa-compress"></i> Collapse All</button>
+    </div>
+
+    <div class="section-title">Implemented Security Checks</div>
+    <div class="checks-grid" id="impl-grid"></div>
+
+    <div class="section-title">OWASP Coverage Analysis — Out-of-Scope Items</div>
+    <div class="checks-grid" id="oos-grid"></div>
+
+    <div class="card">
+      <div class="section-title">Scan History</div>
+      <div class="history-wrap">
+        <table class="hist-table"><thead><tr>
+          <th>#</th><th>Device</th><th>IP</th><th>Date</th><th>Score</th><th>Result</th><th>Actions</th>
+        </tr></thead><tbody id="hist-tbody-r"></tbody></table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card" id="standalone-history">
+    <div class="section-title">Scan History</div>
+    <div class="history-wrap">
+      <table class="hist-table"><thead><tr>
+        <th>#</th><th>Device</th><th>IP</th><th>Date</th><th>Score</th><th>Result</th><th>Actions</th>
+      </tr></thead><tbody id="hist-tbody-s"></tbody></table>
+    </div>
+  </div>
+
+</div>
+
+<div id="pdf-report"></div>
+
+<!-- JSON Modal -->
+<div id="json-modal" onclick="closeOutside(event)">
+  <div class="modal-box">
+    <div class="modal-hdr">Raw Scan JSON <button class="modal-close" onclick="closeJsonModal()">&times;</button></div>
+    <div class="modal-body"><pre id="json-pre"></pre></div>
+  </div>
+</div>
+
+<!-- Test Env Modal -->
+<div id="env-modal" onclick="closeEnvOutside(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;align-items:center;justify-content:center">
+  <div class="modal-box">
+    <div class="modal-hdr"><i class="fas fa-flask" style="color:var(--green);margin-right:8px"></i>Test Environment <button class="modal-close" onclick="closeEnvModal()">&times;</button></div>
+    <div class="modal-body" style="padding:20px">
+      <p style="font-size:13px;margin-bottom:14px">To test the scanner against known vulnerabilities, start the Docker test environment:</p>
+      <pre style="background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;font-size:12px;margin-bottom:14px">cd test-environment
+docker compose up --build -d</pre>
+      <p style="font-size:13px;margin-bottom:8px">Then scan <strong>127.0.0.1</strong> — all 4 checks should FAIL:</p>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr><th style="text-align:left;padding:6px 8px;background:#f8fafc;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280">Port</th><th style="text-align:left;padding:6px 8px;background:#f8fafc;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280">Service</th><th style="text-align:left;padding:6px 8px;background:#f8fafc;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280">Vulnerability</th></tr>
+        <tr><td style="padding:7px 8px;border-bottom:1px solid #f1f5f9">8888</td><td style="padding:7px 8px;border-bottom:1px solid #f1f5f9">HTTP API</td><td style="padding:7px 8px;border-bottom:1px solid #f1f5f9">No headers, unauthenticated /admin, /api/config exposes creds</td></tr>
+        <tr><td style="padding:7px 8px;border-bottom:1px solid #f1f5f9">2222</td><td style="padding:7px 8px;border-bottom:1px solid #f1f5f9">SSH</td><td style="padding:7px 8px;border-bottom:1px solid #f1f5f9">admin/admin, root/toor, pi/raspberry accepted</td></tr>
+        <tr><td style="padding:7px 8px">1883</td><td style="padding:7px 8px">MQTT</td><td style="padding:7px 8px">Anonymous access, no TLS</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+var currentScan = null;
+
+var scanMsgs = [
+  'I1 — Testing SSH default credentials on ports 22, 2222...',
+  'I1 — Testing HTTP login endpoints on ports 80, 8080, 8888...',
+  'I1 — Testing MQTT anonymous and default credentials...',
+  'I2 — Port scanning 20 IoT-relevant TCP ports...',
+  'I2 — Grabbing service banners and fingerprinting...',
+  'I3 — Checking HTTP security headers...',
+  'I3 — Probing for unauthenticated endpoints...',
+  'I3 — Analysing CORS, server disclosure, HTTP methods...',
+  'I7 — Checking HTTP vs HTTPS availability...',
+  'I7 — Analysing TLS version and certificate...',
+  'I7 — Checking MQTT cleartext vs MQTTS...',
+  'Finalising results and saving to database...'
+];
+var msgIdx = 0, msgTimer = null;
+
+function startMsgCycle() {
+  msgIdx = 0;
+  document.getElementById('prog-msg').textContent = scanMsgs[0];
+  msgTimer = setInterval(function() {
+    msgIdx = (msgIdx + 1) % scanMsgs.length;
+    document.getElementById('prog-msg').textContent = scanMsgs[msgIdx];
+  }, 3000);
+}
+function stopMsgCycle() { clearInterval(msgTimer); msgTimer = null; }
+
+function isValidIP(v) { return /^(\d{1,3}\.){3}\d{1,3}$/.test(v); }
+
+function esc(t) {
+  return String(t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(s) { try { return new Date(s).toLocaleString(); } catch(e) { return s; } }
+function scoreColor(n) { return n >= 75 ? '#16a34a' : n >= 50 ? '#ea580c' : '#dc2626'; }
+function pillClass(n)  { return n >= 75 ? 'sc-g' : n >= 50 ? 'sc-o' : 'sc-r'; }
+
+function cvssClass(score) {
+  if (score >= 9.0) return 'cvss-critical';
+  if (score >= 7.0) return 'cvss-high';
+  if (score >= 4.0) return 'cvss-medium';
+  if (score > 0)    return 'cvss-low';
+  return 'cvss-info';
+}
+
+function sevPillClass(s) {
+  var m = {'Critical':'sev-critical','High':'sev-high','Medium':'sev-medium','Low':'sev-low','Info':'sev-info'};
+  return m[s] || 'sev-info';
+}
+
+function startScan() {
+  var ip   = document.getElementById('input-ip').value.trim();
+  var name = document.getElementById('input-name').value.trim() || 'Unknown Device';
+  if (!ip) { alert('Please enter a device IP address.'); return; }
+  if (!isValidIP(ip)) { alert('Invalid IP format. Example: 192.168.1.1'); return; }
+
+  var btn = document.getElementById('btn-scan');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning...';
+  document.getElementById('scan-progress').style.display = 'block';
+  document.getElementById('results-panel').style.display = 'none';
+  document.getElementById('error-box').style.display = 'none';
+  startMsgCycle();
+
+  fetch('/api/scan', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ip: ip, device_name: name})
+  })
+  .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, d: d}; }); })
+  .then(function(res) {
+    stopMsgCycle();
+    document.getElementById('scan-progress').style.display = 'none';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-play"></i> Run Scan';
+    if (res.ok) {
+      document.getElementById('error-box').style.display = 'none';
+      displayResults(res.d);
+    } else {
+      showError(res.d.error || 'Scan failed.');
+    }
+  })
+  .catch(function() {
+    stopMsgCycle();
+    document.getElementById('scan-progress').style.display = 'none';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-play"></i> Run Scan';
+    showError('Cannot connect to the server. Make sure Flask is running on port 8080.');
+  });
+}
+
+function buildFindingsHtml(findings) {
+  if (!findings || !findings.length) return '';
+  var html = '<div class="findings-section">'
+    + '<div class="findings-title"><i class="fas fa-bug"></i> Findings (' + findings.length + ')</div>';
+  findings.forEach(function(f) {
+    var rl = f.risk_level || 'Medium';
+    var cs = f.cvss_score || 0;
+    html += '<div class="finding-item risk-' + esc(rl) + '">'
+      + '<div class="finding-header">'
+      +   '<div class="finding-title">' + esc(f.title || f.finding_id) + '</div>'
+      +   (cs ? '<span class="finding-cvss ' + cvssClass(cs) + '">CVSS ' + cs.toFixed(1) + '</span>' : '')
+      + '</div>'
+      + '<div class="finding-desc">' + esc(f.description || '') + '</div>'
+      + '<div class="finding-meta">'
+      +   (f.port         ? 'Port: ' + f.port + ' &nbsp;|&nbsp; ' : '')
+      +   (f.protocol     ? 'Protocol: ' + esc(f.protocol) + ' &nbsp;|&nbsp; ' : '')
+      +   (f.credential   ? 'Credential: <strong>' + esc(f.credential) + '</strong> &nbsp;|&nbsp; ' : '')
+      +   (f.url          ? 'URL: ' + esc(f.url) + ' &nbsp;|&nbsp; ' : '')
+      +   (f.header       ? 'Header: ' + esc(f.header) + ' &nbsp;|&nbsp; ' : '')
+      +   (f.cvss_vector  ? esc(f.cvss_vector) : '')
+      + '</div>'
+      + '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function buildSummaryHtml(summary) {
+  if (!summary || !Object.keys(summary).length) return '';
+  var html = '<div class="summary-grid">';
+  Object.entries(summary).forEach(function(entry) {
+    var k = entry[0], v = entry[1];
+    if (v === null || v === undefined) return;
+    var display = Array.isArray(v) ? (v.length ? v.join(', ') : '—') : String(v);
+    html += '<div class="summary-box">'
+      + '<div class="sb-label">' + esc(k.replace(/_/g,' ')) + '</div>'
+      + '<div class="sb-val">' + esc(display) + '</div>'
+      + '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function buildScoreBar(score) {
+  var color = score >= 75 ? '#16a34a' : score >= 50 ? '#ea580c' : '#dc2626';
+  return '<div class="score-bar-wrap">'
+    + '<div class="score-bar-track"><div class="score-bar-fill" style="width:' + score + '%;background:' + color + '"></div></div>'
+    + '<div class="score-bar-val">' + score + '%</div>'
+    + '</div>';
+}
+
+function displayResults(data) {
+  currentScan = data;
+  var checks = data.checks || [];
+  var impl   = checks.filter(function(c) { return c.implemented; });
+  var oos    = checks.filter(function(c) { return !c.implemented; });
+  var passed = impl.filter(function(c) { return c.status === 'PASS'; }).length;
+  var failed = impl.filter(function(c) { return c.status === 'FAIL'; }).length;
+
+  var allFindings = [];
+  impl.forEach(function(c) { if (c.findings) allFindings = allFindings.concat(c.findings); });
+  var crit = allFindings.filter(function(f) { return f.risk_level === 'Critical'; }).length;
+  var high = allFindings.filter(function(f) { return f.risk_level === 'High'; }).length;
+
+  document.getElementById('r-name').textContent  = data.device_name || 'Unknown';
+  document.getElementById('r-ip').textContent    = 'IP: ' + data.device_ip;
+  document.getElementById('r-date').textContent  = 'Scanned: ' + fmtDate(data.scan_date);
+  document.getElementById('r-reach').innerHTML   = data.reach_method
+    ? '<i class="fas fa-circle-check" style="color:#4ade80"></i> Reachable via ' + esc(data.reach_method)
+    : '';
+
+  var score = data.security_score || data.total_score || 0;
+  var circle = document.getElementById('r-circle');
+  circle.style.background = scoreColor(score);
+  document.getElementById('r-num').textContent = score + '%';
+
+  var verd = document.getElementById('r-verdict');
+  if (score >= 75) {
+    verd.className = 'verdict-bar v-green';
+    verd.innerHTML = '<i class="fas fa-circle-check"></i> Device passed most implemented checks — lower risk profile';
+  } else if (score >= 50) {
+    verd.className = 'verdict-bar v-orange';
+    verd.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Device has significant security issues — remediation required';
+  } else {
+    verd.className = 'verdict-bar v-red';
+    verd.innerHTML = '<i class="fas fa-circle-xmark"></i> Device is critically insecure — immediate action required';
+  }
+
+  document.getElementById('st-pass').textContent = passed;
+  document.getElementById('st-fail').textContent = failed;
+  document.getElementById('st-crit').textContent = crit;
+  document.getElementById('st-high').textContent = high;
+  document.getElementById('st-na').textContent   = oos.length;
+  document.getElementById('st-impl').textContent = impl.length;
+
+  var implGrid = document.getElementById('impl-grid');
+  implGrid.innerHTML = '';
+  impl.forEach(function(c, idx) {
+    var st     = c.status || 'ERROR';
+    var stLow  = st.toLowerCase();
+    var sevCls = sevPillClass(c.severity);
+    var score  = c.security_score != null ? c.security_score : (st === 'PASS' ? 100 : 0);
+    var dur    = c.scan_duration_ms ? (c.scan_duration_ms / 1000).toFixed(1) + 's' : '';
+
+    var pillClass = st === 'PASS' ? 'pill-pass' : st === 'FAIL' ? 'pill-fail' : 'pill-error';
+    var iconClass = st === 'PASS' ? 'fa-circle-check pass' : st === 'FAIL' ? 'fa-circle-xmark fail' : 'fa-circle-exclamation error';
+
+    var remHtml = '';
+    if (c.remediation_steps && c.remediation_steps.length) {
+      var steps = c.remediation_steps.map(function(s) { return '<li>' + esc(s) + '</li>'; }).join('');
+      remHtml = '<div class="remed-box"><div class="rem-label"><i class="fas fa-screwdriver-wrench"></i> Remediation Steps</div><ol>' + steps + '</ol></div>';
+    }
+
+    var card = document.createElement('div');
+    card.className = 'check-card implemented ' + stLow;
+    card.innerHTML =
+      '<div class="check-card-header" onclick="toggleCard(\'impl-\'+' + idx + ')">'
+        + '<div class="cc-left">'
+          + '<i class="fas ' + iconClass + ' cc-icon"></i>'
+          + '<span class="cc-id">' + esc(c.check_id) + '</span>'
+          + '<div><div class="cc-name">' + esc(c.check_name) + '</div>'
+          +      '<div class="cc-owasp">' + esc(c.owasp_ref || '') + '</div></div>'
+        + '</div>'
+        + '<div class="cc-right">'
+          + '<span class="status-pill ' + pillClass + '">' + esc(st) + '</span>'
+          + '<span class="sev-pill ' + sevCls + '">' + esc(c.severity) + '</span>'
+          + buildScoreBar(score)
+          + (dur ? '<span class="duration-badge"><i class="fas fa-clock"></i> ' + dur + '</span>' : '')
+          + '<i class="fas fa-chevron-down cc-chevron" id="chev-impl-' + idx + '"></i>'
+        + '</div>'
+      + '</div>'
+      + '<div class="check-body" id="body-impl-' + idx + '">'
+        + buildSummaryHtml(c.scan_summary)
+        + buildFindingsHtml(c.findings)
+        + '<div class="tech-box"><div class="tb-label">Technical Detail</div><div class="tb-text">' + esc(c.technical_detail || '') + '</div></div>'
+        + '<div class="risk-box"><div class="rb-label">Why This Matters</div><div class="rb-text">' + esc(c.risk_explanation || '') + '</div></div>'
+        + remHtml
+      + '</div>';
+    implGrid.appendChild(card);
+  });
+
+  var oosGrid = document.getElementById('oos-grid');
+  oosGrid.innerHTML = '';
+  oos.forEach(function(c, idx) {
+    var sevCls = sevPillClass(c.severity);
+    var card = document.createElement('div');
+    card.className = 'check-card not-implemented';
+    card.innerHTML =
+      '<div class="check-card-header" onclick="toggleCard(\'oos-\'+' + idx + ')">'
+        + '<div class="cc-left">'
+          + '<i class="fas fa-minus-circle cc-icon na"></i>'
+          + '<span class="cc-id">' + esc(c.check_id) + '</span>'
+          + '<div><div class="cc-name">' + esc(c.check_name) + '</div>'
+          +      '<div class="cc-owasp">' + esc(c.owasp_ref || '') + '</div></div>'
+        + '</div>'
+        + '<div class="cc-right">'
+          + '<span class="status-pill pill-na">OUT OF SCOPE</span>'
+          + '<span class="sev-pill ' + sevCls + '">' + esc(c.severity) + '</span>'
+          + '<i class="fas fa-chevron-down cc-chevron" id="chev-oos-' + idx + '"></i>'
+        + '</div>'
+      + '</div>'
+      + '<div class="check-body" id="body-oos-' + idx + '">'
+        + '<div class="exclusion-box">'
+          + '<div class="ex-label">Exclusion Rationale</div>'
+          + '<div class="ex-text">' + esc(c.exclusion_reason || '') + '</div>'
+        + '</div>'
+      + '</div>';
+    oosGrid.appendChild(card);
+  });
+
+  document.getElementById('results-panel').style.display = 'block';
+  document.getElementById('standalone-history').style.display = 'none';
+  document.getElementById('results-panel').scrollIntoView({behavior: 'smooth', block: 'start'});
+  loadHistory();
+}
+
+function toggleCard(id) {
+  var body = document.getElementById('body-' + id);
+  var chev = document.getElementById('chev-' + id);
+  if (!body) return;
+  var open = body.classList.contains('open');
+  body.classList.toggle('open', !open);
+  if (chev) chev.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+function expandAll() {
+  document.querySelectorAll('.check-body').forEach(function(b) { b.classList.add('open'); });
+  document.querySelectorAll('.cc-chevron').forEach(function(c) { c.style.transform = 'rotate(180deg)'; });
+}
+function collapseAll() {
+  document.querySelectorAll('.check-body').forEach(function(b) { b.classList.remove('open'); });
+  document.querySelectorAll('.cc-chevron').forEach(function(c) { c.style.transform = ''; });
+}
+
+function loadHistory() {
+  fetch('/api/scans')
+  .then(function(r) { return r.json(); })
+  .then(function(scans) {
+    ['hist-tbody-r','hist-tbody-s'].forEach(function(id) { renderHist(id, scans); });
+  }).catch(function() {});
+}
+
+function renderHist(tbodyId, scans) {
+  var tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  if (!scans || !scans.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:#aaa;text-align:center;padding:20px">No scans yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  scans.forEach(function(s, i) {
+    var score = s.total_score;
+    var pc = pillClass(score);
+    var passed = Math.round(score / 100 * 4);
+    var failed = 4 - passed;
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + (i+1) + '</td>'
+      + '<td>' + esc(s.device_name || 'Unknown') + '</td>'
+      + '<td><code style="background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:11px">' + esc(s.device_ip) + '</code></td>'
+      + '<td>' + fmtDate(s.scan_date) + '</td>'
+      + '<td><span class="sc-pill ' + pc + '">' + score + '%</span></td>'
+      + '<td style="color:#16a34a;font-weight:700;font-size:12px">' + passed + ' PASS</td>'
+      + '<td>'
+        + '<button class="btn-view" onclick="loadById(' + s.id + ')">View</button>'
+        + '<button class="btn-del"  onclick="deleteScan(' + s.id + ')" title="Delete"><i class="fas fa-trash-can"></i></button>'
+      + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function loadById(id) {
+  fetch('/api/scan/' + id)
+  .then(function(r) { return r.json(); })
+  .then(function(d) { displayResults(d); })
+  .catch(function() { alert('Could not load scan #' + id); });
+}
+
+function deleteScan(id) {
+  if (!confirm('Delete this scan? This cannot be undone.')) return;
+  fetch('/api/scan/' + id, {method: 'DELETE'})
+  .then(function(r) {
+    if (r.ok) {
+      loadHistory();
+      if (currentScan && currentScan.id === id) resetForm();
+    } else { alert('Could not delete scan #' + id); }
+  }).catch(function() { alert('Server error.'); });
+}
+
+function downloadPDF() {
+  if (!currentScan) return;
+  var el = document.getElementById('pdf-report');
+  el.innerHTML = buildPdfContent(currentScan);
+  el.style.display = 'block';
+  setTimeout(function() {
+    html2pdf().set({
+      margin: [8,8,8,8],
+      filename: 'IoT-Security-Report-' + currentScan.device_ip + '-' + new Date().toISOString().split('T')[0] + '.pdf',
+      image: {type:'jpeg',quality:0.97},
+      html2canvas: {scale:2,useCORS:true,logging:false},
+      jsPDF: {unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak: {mode:['avoid-all','css']}
+    }).from(el).save().then(function() { el.style.display = 'none'; });
+  }, 400);
+}
+
+function buildPdfContent(data) {
+  var checks  = data.checks || [];
+  var impl    = checks.filter(function(c) { return c.implemented; });
+  var passed  = impl.filter(function(c) { return c.status==='PASS'; }).length;
+  var failed  = impl.filter(function(c) { return c.status==='FAIL'; }).length;
+  var score   = data.security_score || data.total_score || 0;
+  var rColor  = score>=75?'#16a34a':score>=50?'#ea580c':'#dc2626';
+  var dt      = fmtDate(data.scan_date);
+
+  var checksHtml = impl.map(function(c) {
+    var bc = c.status==='PASS'?'#16a34a':c.status==='FAIL'?'#dc2626':'#6b7280';
+    var findingsHtml = (c.findings||[]).map(function(f) {
+      return '<div style="border-left:3px solid #fca5a5;padding:8px 10px;margin-bottom:6px;background:#fffafa">'
+        + '<div style="font-size:11px;font-weight:700;color:#1a202c;margin-bottom:3px">' + esc(f.title||'') + (f.cvss_score?' <span style="background:#b91c1c;color:#fff;font-size:9px;padding:1px 6px;border-radius:3px">CVSS '+f.cvss_score.toFixed(1)+'</span>':'') + '</div>'
+        + '<div style="font-size:10px;color:#4b5563;line-height:1.6">' + esc(f.description||'') + '</div>'
+        + (f.credential ? '<div style="font-size:9px;color:#9ca3af;margin-top:2px">Credential: '+esc(f.credential)+'</div>' : '')
+        + '</div>';
+    }).join('');
+
+    var remHtml = (c.remediation_steps||[]).map(function(s) {
+      return '<li style="font-size:10px;color:#14532d;line-height:1.7;margin-bottom:2px">' + esc(s) + '</li>';
+    }).join('');
+
+    return '<div style="border:1px solid #e5e7eb;border-radius:8px;border-left:4px solid '+bc+';margin-bottom:14px;overflow:hidden;page-break-inside:avoid">'
+      + '<div style="background:#f9fafb;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
+      +   '<div><span style="background:#f1f5f9;color:#475569;font-size:9px;font-weight:700;padding:1px 7px;border-radius:99px;margin-right:7px">'+esc(c.check_id)+'</span>'
+      +       '<span style="font-size:12px;font-weight:700;color:#111827">'+esc(c.check_name)+'</span>'
+      +       '<div style="font-size:10px;color:#6b7280;margin-top:1px">'+esc(c.owasp_ref||'')+'</div></div>'
+      +   '<div style="display:flex;gap:5px">'
+      +     '<span style="background:'+(c.status==='PASS'?'#dcfce7':'#fef2f2')+';color:'+(c.status==='PASS'?'#15803d':'#b91c1c')+';font-size:9px;font-weight:700;padding:2px 8px;border-radius:5px">'+esc(c.status)+'</span>'
+      +     '<span style="background:#f1f5f9;color:#475569;font-size:9px;font-weight:700;padding:2px 8px;border-radius:5px">Score: '+(c.security_score!=null?c.security_score:0)+'%</span>'
+      +   '</div>'
+      + '</div>'
+      + '<div style="padding:12px 14px">'
+      +   (c.findings&&c.findings.length ? '<div style="font-size:10px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Findings ('+c.findings.length+')</div>'+findingsHtml : '<div style="font-size:11px;color:#16a34a;padding:6px 0">&#10003; No vulnerabilities found.</div>')
+      +   '<div style="background:#f8fafc;border-left:3px solid #2563eb;padding:8px 10px;margin-top:8px;border-radius:0 6px 6px 0">'
+      +     '<div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#2563eb;margin-bottom:3px">Technical Detail</div>'
+      +     '<div style="font-size:10px;color:#111827;line-height:1.6">'+esc(c.technical_detail||'')+'</div>'
+      +   '</div>'
+      +   (remHtml ? '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 10px;margin-top:8px"><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#166534;margin-bottom:5px">Remediation</div><ol style="padding-left:16px;margin:0">'+remHtml+'</ol></div>' : '')
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  return '<div style="font-family:Arial,Helvetica,sans-serif;max-width:100%;color:#111827;background:#f1f5f9;padding:20px">'
+    + '<div style="background:#0f172a;color:#fff;padding:22px 26px;border-radius:10px 10px 0 0">'
+    +   '<div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px">CONFIDENTIAL SECURITY ASSESSMENT REPORT</div>'
+    +   '<div style="font-size:19px;font-weight:800">IoT Security Assessment Report</div>'
+    +   '<div style="font-size:10px;color:#94a3b8;margin-top:2px">OWASP IoT Top 10:2018 — Automated Security Evaluation</div>'
+    +   '<div style="display:flex;flex-wrap:wrap;gap:18px;margin-top:16px;align-items:flex-end">'
+    +     '<div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.8px">Device</div><div style="font-size:13px;font-weight:700;color:#fff;margin-top:2px">'+esc(data.device_name)+'</div></div>'
+    +     '<div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.8px">IP</div><div style="font-size:12px;font-weight:700;color:#e2e8f0;margin-top:2px;font-family:monospace">'+esc(data.device_ip)+'</div></div>'
+    +     '<div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.8px">Date</div><div style="font-size:10px;color:#cbd5e1;margin-top:2px">'+dt+'</div></div>'
+    +     '<div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.8px">Checks</div><div style="font-size:10px;color:#cbd5e1;margin-top:2px">'+impl.length+' implemented (I1, I2, I3, I7)</div></div>'
+    +     '<div style="margin-left:auto"><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Security Score</div>'
+    +       '<div style="background:'+rColor+';border-radius:50%;width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">'
+    +         '<span style="font-size:16px;font-weight:800;color:#fff;line-height:1">'+score+'</span>'
+    +         '<span style="font-size:7px;color:rgba(255,255,255,.8)">%</span>'
+    +       '</div>'
+    +     '</div>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="background:'+(score>=75?'#dcfce7':score>=50?'#fff7ed':'#fef2f2')+';color:'+(score>=75?'#166534':score>=50?'#9a3412':'#991b1b')+';padding:9px 26px;font-weight:700;font-size:11px;margin-bottom:16px;border-radius:0 0 10px 10px">'
+    +   'Security Score: '+score+'% | Passed: '+passed+'/'+impl.length+' | Failed: '+failed+'/'+impl.length
+    + '</div>'
+    + '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;margin-bottom:16px">'
+    +   '<div style="font-size:12px;font-weight:700;margin-bottom:10px;color:#0f172a;border-left:4px solid #2563eb;padding-left:10px">Scope</div>'
+    +   '<p style="font-size:11px;line-height:1.7;color:#374151;margin:0">'
+    +     'This report covers <strong>4 of 10 OWASP IoT Top 10 items</strong> selected for network-based automated testing: '
+    +     '<strong>I1</strong> (Weak Credentials), <strong>I2</strong> (Insecure Network Services), '
+    +     '<strong>I3</strong> (Insecure Ecosystem Interfaces), and <strong>I7</strong> (Insecure Data Transfer). '
+    +     'Items I4, I5, I6, I8, I9, I10 were excluded — see REQUIREMENTS.md for full rationale.'
+    +   '</p>'
+    + '</div>'
+    + '<div style="font-size:12px;font-weight:700;margin-bottom:12px;color:#0f172a;border-left:4px solid #2563eb;padding-left:10px">Detailed Findings</div>'
+    + checksHtml
+    + '<div style="margin-top:18px;padding-top:12px;border-top:1px solid #e5e7eb;text-align:center;color:#94a3b8;font-size:9px">'
+    +   'Generated by IoT Security Tester &bull; OWASP IoT Top 10:2018 &bull; ' + new Date().toLocaleDateString() + ' &bull; CONFIDENTIAL'
+    + '</div>'
+    + '</div>';
+}
+
+function showJsonModal() {
+  if (!currentScan) return;
+  document.getElementById('json-pre').textContent = JSON.stringify(currentScan, null, 2);
+  document.getElementById('json-modal').classList.add('open');
+}
+function closeJsonModal() { document.getElementById('json-modal').classList.remove('open'); }
+function closeOutside(e)  { if (e.target===document.getElementById('json-modal')) closeJsonModal(); }
+
+function showEnvModal() {
+  var m = document.getElementById('env-modal');
+  m.style.display = 'flex';
+}
+function closeEnvModal() {
+  document.getElementById('env-modal').style.display = 'none';
+}
+function closeEnvOutside(e) {
+  if (e.target === document.getElementById('env-modal')) closeEnvModal();
+}
+
+function resetForm() {
+  currentScan = null;
+  document.getElementById('results-panel').style.display = 'none';
+  document.getElementById('standalone-history').style.display = 'block';
+  document.getElementById('input-ip').value = '';
+  document.getElementById('input-name').value = '';
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function showError(msg) {
+  var box   = document.getElementById('error-box');
+  var body  = document.getElementById('err-body');
+  var tips  = document.getElementById('err-tips');
+  var title = document.getElementById('err-title-text');
+
+  var tipsList = [];
+  if (msg.toLowerCase().indexOf('not reachable') !== -1 || msg.toLowerCase().indexOf('not respond') !== -1) {
+    title.textContent = 'Device Not Found on Network';
+    tipsList = [
+      'Check the IP address is correct — run "arp -a" to see network devices',
+      'Make sure the device is powered on and on the same network',
+      'Scan 127.0.0.1 to test against the Docker test environment',
+      'If using the test environment: run "docker compose up -d" in test-environment/'
+    ];
+  } else {
+    title.textContent = 'Scan Error';
+    tipsList = ['Check the IP and try again', 'Make sure the device is reachable'];
+  }
+  body.textContent = msg;
+  tips.innerHTML = tipsList.map(function(t) { return '<li>' + esc(t) + '</li>'; }).join('');
+  box.style.display = 'block';
+  box.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadHistory();
+  ['input-ip','input-name'].forEach(function(id) {
+    document.getElementById(id).addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') startScan();
+    });
+  });
+});
+</script>
+</body>
+</html>

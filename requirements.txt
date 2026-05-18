@@ -1,0 +1,5 @@
+flask
+paramiko
+requests
+paho-mqtt
+urllib3
