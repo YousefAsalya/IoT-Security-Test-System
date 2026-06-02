@@ -3,14 +3,13 @@ Deliberately Vulnerable IoT Device API
 Test environment component — DO NOT deploy in production.
 
 Simulates a poorly secured IoT gateway web interface with the following
-intentional vulnerabilities for I1, I3, and I7 scanner testing:
-  - No HTTP security headers
-  - Server version disclosure
-  - Unauthenticated admin panel
-  - Unauthenticated /api/config returning plaintext credentials
-  - Default credentials accepted at /api/login
-  - CORS wildcard
-  - Sensitive debug endpoint
+intentional vulnerabilities for scanner testing:
+  I1: Default credentials accepted at /api/login
+  I3: No HTTP security headers, unauthenticated admin/config/debug endpoints,
+      CORS wildcard, server version disclosure
+  I4: Unauthenticated firmware endpoints over HTTP (cleartext)
+  I5: Outdated server version in banner (lighttpd/1.4.35 — CVE-2022-22707)
+  I7: Cleartext HTTP with login endpoint, no HTTPS available
 """
 
 from flask import Flask, jsonify, request
@@ -20,8 +19,10 @@ app = Flask(__name__)
 
 @app.after_request
 def add_vulnerable_headers(response):
-    response.headers['Server'] = 'IoT-Gateway/1.0.2 Python/3.11 Flask/2.3'
+    # I5: Disclose a known-vulnerable server version (lighttpd 1.4.35)
+    response.headers['Server'] = 'lighttpd/1.4.35'
     response.headers['X-Powered-By'] = 'ESP32-DevKit-v1'
+    # I3: CORS wildcard
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -33,7 +34,10 @@ def index():
     return jsonify({
         'device': 'IoT Gateway v1.0.2',
         'status': 'online',
-        'endpoints': ['/api/login', '/api/config', '/api/status', '/api/debug', '/admin'],
+        'endpoints': [
+            '/api/login', '/api/config', '/api/status', '/api/debug',
+            '/admin', '/firmware', '/firmware/update',
+        ],
     })
 
 
@@ -147,6 +151,76 @@ def setup():
     <body><h1>Initial Device Setup</h1>
     <p>This setup page is accessible post-deployment.</p></body></html>
     '''
+
+
+# ── I4: Firmware update endpoints (unauthenticated, over HTTP) ────────────
+
+@app.route('/firmware')
+def firmware_info():
+    """Unauthenticated firmware info — exposes version and cleartext download URL."""
+    return jsonify({
+        'device':           'iot-gateway-001',
+        'current_version':  '1.0.2',
+        'latest_version':   '1.1.0',
+        'update_available': True,
+        'download_url':     'http://updates.iot-vendor.local/firmware/iot-gw-1.1.0.bin',
+        'changelog':        'Fixed memory leak in MQTT handler; updated TLS stack.',
+        'file_size_bytes':  4194304,
+        'checksum_md5':     'd41d8cd98f00b204e9800998ecf8427e',
+    })
+
+
+@app.route('/firmware/update', methods=['GET', 'POST'])
+def firmware_update():
+    """Unauthenticated firmware upload endpoint."""
+    if request.method == 'GET':
+        return jsonify({
+            'status':  'ready',
+            'message': 'POST a firmware binary to this endpoint to update the device.',
+            'current_version': '1.0.2',
+            'accepted_formats': ['.bin', '.img', '.fw'],
+            'max_size_mb': 16,
+        })
+    return jsonify({
+        'status':  'error',
+        'message': 'Firmware update simulation — no actual update performed.',
+    }), 400
+
+
+@app.route('/api/firmware')
+def api_firmware():
+    """Exposes firmware metadata including cleartext OTA server URL."""
+    return jsonify({
+        'firmware_version': '1.0.2',
+        'build_date':       '2024-01-15',
+        'update_server':    'http://ota.iot-vendor.local:8080/api/v1/firmware',
+        'auto_update':      True,
+        'last_check':       '2024-06-01T12:00:00Z',
+    })
+
+
+@app.route('/api/update')
+def api_update():
+    """Unauthenticated update check with no signature verification."""
+    return jsonify({
+        'status':       'update_available',
+        'version':      '1.1.0',
+        'download_url': 'http://updates.iot-vendor.local/firmware/iot-gw-1.1.0.bin',
+        'release_date': '2024-05-20',
+        'signature':    'none',
+    })
+
+
+@app.route('/ota')
+def ota_endpoint():
+    """OTA configuration — cleartext server, no authentication."""
+    return jsonify({
+        'ota_enabled':  True,
+        'channel':      'stable',
+        'server':       'http://ota.iot-vendor.local',
+        'interval_h':   24,
+        'last_update':  '2024-01-15T08:30:00Z',
+    })
 
 
 if __name__ == '__main__':

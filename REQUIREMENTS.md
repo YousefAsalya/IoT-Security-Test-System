@@ -52,10 +52,10 @@ Rationale: The majority of consumer IoT devices expose a web management interfac
 
 **Description:** Firmware updates are transmitted without encryption or cryptographic signature verification, allowing man-in-the-middle attacks to install malicious firmware.
 
-**Testability Assessment:** Low. Verifying firmware update security requires: (a) intercepting the update process at the binary level, (b) knowledge of the device's expected firmware signing public key, or (c) active MITM with update server impersonation. While detecting unprotected HTTP update endpoints is trivially possible, confirming absence of firmware signature verification requires firmware-level analysis tools (binwalk, Ghidra) and is outside the scope of a black-box network scanner.
+**Testability Assessment:** Low for full assessment, Medium for update channel security. Verifying firmware signature verification requires firmware binary access (binwalk, Ghidra) and is outside the scope of a black-box network scanner. However, update *channel* security is network-observable: unauthenticated firmware endpoints, cleartext (HTTP) update URLs, and absence of HTTPS for update delivery can all be detected through endpoint probing.
 
-**Decision: EXCLUDE.**
-Rationale: Surface-level endpoint probing (checking if `/firmware` returns HTTP 200) is misleading — an endpoint may return 200 and still verify signatures on the server side. A rigorous implementation would require firmware binary access and is not achievable as a network-only check. This item is better addressed through static firmware analysis (separate tool category).
+**Decision: IMPLEMENT (limited scope — update channel security only).**
+Rationale: While firmware signature verification cannot be confirmed over a network, the update channel itself can be assessed. The implementation probes 23 common firmware/update/OTA endpoint paths across all active HTTP ports, checking: (a) whether firmware management endpoints are accessible without authentication, (b) whether the update channel uses HTTPS or cleartext HTTP, and (c) whether the device exposes firmware version metadata to unauthenticated clients. This captures the network-observable dimension of I4 while clearly documenting the out-of-scope aspects (signature verification, secure boot chain) in both the check output and scan report. The 2018 VPNFilter malware, which exploited insecure update channels on 500,000+ routers, demonstrates the practical impact of this vulnerability class.
 
 ---
 
@@ -63,10 +63,10 @@ Rationale: Surface-level endpoint probing (checking if `/firmware` returns HTTP 
 
 **Description:** Device firmware includes outdated OS kernels, libraries (OpenSSL, uClibc), or application software with known CVEs that have not been patched.
 
-**Testability Assessment:** Medium. Service banners sometimes reveal version strings that can be cross-referenced against CVE databases. However: (a) many services obfuscate version information, (b) version detection alone does not confirm exploitability, and (c) IoT-specific CVE mapping requires a continuously updated vulnerability database (NVD API integration).
+**Testability Assessment:** Medium. Service banners frequently reveal version strings (SSH, HTTP Server, FTP, MQTT) that can be matched against known-vulnerable releases. While version detection alone does not confirm exploitability, IoT firmware versions are largely frozen at the time of compilation and rarely updated, making static version matching a practical indicator of risk.
 
-**Decision: EXCLUDE.**
-Rationale: Version-based CVE scanning is adequately addressed by dedicated tools (OpenVAS, Nessus, Trivy for firmware). Reimplementing this as a shallow regex-on-banner check would produce unreliable results. The version strings detected in I2's banner grabbing provide the necessary data for manual CVE lookup. This item is better addressed through a dedicated vulnerability scanner.
+**Decision: IMPLEMENT (static CVE matching against curated version database).**
+Rationale: Rather than integrating a live NVD API (rate-limited, requires continuous maintenance), the implementation uses a curated database of known-vulnerable versions for components commonly found on IoT devices: OpenSSH, Dropbear, vsftpd, ProFTPD, Apache, nginx, lighttpd, OpenSSL, BusyBox, Mosquitto, and MiniUPnP. Version strings are extracted from service banners via regex, then matched against version-range patterns with associated CVE references and CVSS scores. Conservative matching reduces false positives — ambiguous or suppressed banners are noted in the scan summary but do not produce findings (version suppression is actually a security best practice). The I2 banner data provides complementary input but I5 performs its own independent banner collection to maintain check isolation. Banner data from I2 remains available for manual CVE lookup of components not covered by the static database.
 
 ---
 
@@ -107,10 +107,10 @@ Rationale: The network-observable aspects of I8 (unauthenticated management endp
 
 **Description:** Devices ship with insecure default configurations: unnecessary services enabled, unrestricted firewall rules, debug interfaces active, default admin accounts enabled.
 
-**Testability Assessment:** Medium. Some default setting indicators are network-observable (open MQTT without auth, setup wizard pages accessible post-configuration, default hostname resolution). However, most "default settings" findings are device-specific and cannot be generalized across device types without a device profile database.
+**Testability Assessment:** Medium. While I1, I2, and I7 cover the highest-impact default settings (credentials, dangerous services, missing encryption), several network-observable default-setting indicators remain uncovered: UPnP/SSDP enabled by default, Android Debug Bridge (ADB) over TCP, SNMP with default community strings, mDNS service advertisement, factory-default device hostnames, and setup wizard pages accessible post-deployment.
 
-**Decision: EXCLUDE.**
-Rationale: The most security-impactful default settings (default credentials, open dangerous services, missing encryption) are already captured with full depth by I1, I2, and I7 respectively. Remaining I9 indicators (wizard pages, device hostnames) are too device-specific to implement reliably as a general-purpose scanner without causing high false-positive rates.
+**Decision: IMPLEMENT (network-observable default indicators not covered by I1/I2/I7).**
+Rationale: The implementation checks 6 categories of default-setting indicators via both TCP and UDP probes: UPnP/SSDP (port 1900/UDP) which allows automatic firewall port-opening and was exploited in the CallStranger vulnerability (CVE-2020-12695); ADB over TCP (port 5555) which provides unauthenticated root shell access on Android-based IoT devices; SNMP with the default "public" community string (port 161/UDP) exposing full system inventory; mDNS/Bonjour (port 5353/UDP) leaking device metadata; factory-default hostnames and device identifiers in HTTP responses and headers; and setup wizard pages still accessible after deployment indicating incomplete hardening. These indicators are distinct from I1 (credentials), I2 (service inventory), and I7 (transport encryption) and specifically target the "device was never hardened" signal.
 
 ---
 
@@ -132,7 +132,10 @@ Rationale: This item is fundamentally outside the scope of a network-based scann
 | **I1** | Weak, Guessable, or Hardcoded Passwords | SSH brute-force (Paramiko), HTTP login brute-force (POST to common endpoints), MQTT anonymous + default credential test, CVSS 9.8 scoring for found credentials |
 | **I2** | Insecure Network Services | TCP port scan across 20 IoT-relevant ports, active banner grabbing via raw socket, service fingerprinting, per-service risk classification, IoT protocol detection (MQTT, Modbus, BACnet, RTSP, OPC-UA) |
 | **I3** | Insecure Ecosystem Interfaces | HTTP security header scoring (7 headers), CORS misconfiguration detection, server information disclosure analysis, authentication bypass testing on 12 common IoT API paths, HTTP method enumeration |
+| **I4** | Lack of Secure Update Mechanism | Probes 23 firmware/update/OTA endpoint paths for unauthenticated access, detects cleartext (HTTP) update channels, checks HTTPS availability for update delivery. Limited scope: update channel security only — firmware signature verification is out of scope |
+| **I5** | Use of Insecure or Outdated Components | Banner version extraction from SSH, HTTP, FTP, MQTT services via regex; static matching against curated database of 11 known-vulnerable IoT components (OpenSSH, Dropbear, lighttpd, BusyBox, Mosquitto, etc.) with CVE references and CVSS scores |
 | **I7** | Insecure Data Transfer and Storage | HTTP vs HTTPS detection, TLS version negotiation (TLS 1.0/1.1/1.2/1.3), X.509 certificate analysis (expiry, self-signed, CN mismatch), MQTT cleartext vs TLS, FTP detection, login over cleartext HTTP |
+| **I9** | Insecure Default Settings | UPnP/SSDP exposure (1900/UDP), ADB over TCP (5555), SNMP default community (161/UDP), mDNS (5353/UDP), factory-default hostname detection in HTTP responses/headers, setup wizard accessibility post-deployment |
 
 ---
 
@@ -147,13 +150,18 @@ A Flask web application simulating a poorly-secured IoT device management interf
 | Vulnerability | Location | OWASP Item |
 |---------------|----------|------------|
 | No HTTP security headers | All responses | I3 |
-| Server version disclosure | `Server` header | I3 |
+| Server version disclosure | `Server: lighttpd/1.4.35` header | I3, I5 |
 | Unauthenticated admin panel | `GET /admin` | I3 |
 | Credentials exposed in API | `GET /api/config` | I3, I7 |
 | Default credential accepted | `POST /api/login` | I1 |
 | HTTP-only (no TLS) | All endpoints | I7 |
 | CORS misconfiguration | `Access-Control-Allow-Origin: *` | I3 |
 | Sensitive debug endpoint | `GET /api/debug` | I3 |
+| Unauthenticated firmware info | `GET /firmware` | I4 |
+| Unauthenticated firmware upload | `GET/POST /firmware/update` | I4 |
+| Cleartext OTA server URL | `GET /api/firmware`, `GET /ota` | I4 |
+| Update with no signature | `GET /api/update` (`"signature": "none"`) | I4 |
+| Outdated server component | `lighttpd/1.4.35` (CVE-2022-22707) | I5 |
 
 ### 4.2 Vulnerable SSH Server (`vulnerable-ssh`, port 2222)
 
@@ -182,12 +190,15 @@ Eclipse Mosquitto MQTT broker configured with:
 
 ### 4.4 Expected Scan Results Against Test Environment
 
-When the scanner targets `127.0.0.1`, all four implemented checks should produce FAIL results, confirming correct detection:
+When the scanner targets `127.0.0.1`, all seven implemented checks should produce FAIL results, confirming correct detection:
 
 - **I1**: Default credentials found on SSH (admin/admin) and MQTT (anonymous)
 - **I2**: Dangerous open services: SSH (2222), MQTT (1883), HTTP API (8888)
 - **I3**: All 7 security headers missing; `/admin` accessible without auth; credentials exposed at `/api/config`; CORS misconfigured
+- **I4**: Firmware endpoints (`/firmware`, `/firmware/update`, `/api/firmware`, `/ota`) accessible without authentication over cleartext HTTP
+- **I5**: Outdated component detected via Server header: `lighttpd/1.4.35` (CVE-2022-22707)
 - **I7**: HTTP-only API on port 8888 (no HTTPS); MQTT on port 1883 (no MQTTS)
+- **I9**: Factory default device identity (ESP32) detected in HTTP response headers
 
 ---
 
@@ -195,15 +206,18 @@ When the scanner targets `127.0.0.1`, all four implemented checks should produce
 
 **In scope:**
 - Black-box network-based security assessment
-- TCP/IP reachable services
+- TCP/IP and UDP reachable services
 - Protocol-level vulnerability detection
+- Update channel security (endpoint authentication, transport encryption)
+- Static version-to-CVE matching for common IoT components
+- Default configuration detection (UPnP, ADB, SNMP, mDNS, factory hostnames)
 
 **Out of scope:**
-- Firmware binary analysis
+- Firmware binary analysis (signature verification, secure boot)
 - Physical interface assessment (JTAG, UART)
 - Cloud backend security testing
 - Privacy compliance assessment
-- CVE database integration
+- Live CVE database integration (NVD API) — static curated list used instead
 
 **Limitations:**
 - Credential brute-force stops after first successful hit to avoid account lockout

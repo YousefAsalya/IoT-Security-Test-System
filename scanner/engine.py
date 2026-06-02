@@ -11,37 +11,14 @@ from database import save_scan
 from .i1_credentials  import run_check as check_i1
 from .i2_services     import run_check as check_i2
 from .i3_interfaces   import run_check as check_i3
+from .i4_updates      import run_check as check_i4
+from .i5_components   import run_check as check_i5
 from .i7_datatransfer import run_check as check_i7
+from .i9_defaults     import run_check as check_i9
 
-IMPLEMENTED_CHECKS = [check_i1, check_i2, check_i3, check_i7]
+IMPLEMENTED_CHECKS = [check_i1, check_i2, check_i3, check_i4, check_i5, check_i7, check_i9]
 
 NOT_IMPLEMENTED = [
-    {
-        'check_id': 'I4',
-        'check_name': 'Lack of Secure Update Mechanism',
-        'owasp_ref': 'OWASP IoT Top 10:2018 — I4',
-        'implemented': False,
-        'status': 'N/A',
-        'severity': 'High',
-        'exclusion_reason': (
-            'Requires firmware binary access and knowledge of the device-specific update protocol. '
-            'Surface-level HTTP endpoint probing cannot confirm absence of firmware signature verification. '
-            'See REQUIREMENTS.md §2 for full rationale.'
-        ),
-    },
-    {
-        'check_id': 'I5',
-        'check_name': 'Use of Insecure or Outdated Components',
-        'owasp_ref': 'OWASP IoT Top 10:2018 — I5',
-        'implemented': False,
-        'status': 'N/A',
-        'severity': 'High',
-        'exclusion_reason': (
-            'Version-to-CVE mapping requires an up-to-date vulnerability database and produces '
-            'unreliable results when services suppress version banners. Adequately addressed by '
-            'dedicated tools (OpenVAS, Trivy). Banner data from I2 provides the necessary input for manual CVE lookup.'
-        ),
-    },
     {
         'check_id': 'I6',
         'check_name': 'Insufficient Privacy Protection',
@@ -66,19 +43,6 @@ NOT_IMPLEMENTED = [
             'Network-observable aspects (unauthenticated management endpoints, Telnet) are already '
             'covered with greater depth by I1 and I3. Broader management security issues (audit logging, '
             'remote wipe, credential rotation) are not network-observable. See REQUIREMENTS.md §2.'
-        ),
-    },
-    {
-        'check_id': 'I9',
-        'check_name': 'Insecure Default Settings',
-        'owasp_ref': 'OWASP IoT Top 10:2018 — I9',
-        'implemented': False,
-        'status': 'N/A',
-        'severity': 'Medium',
-        'exclusion_reason': (
-            'The security-impactful default settings (default credentials, open dangerous services, '
-            'missing encryption) are captured with full depth by I1, I2, and I7. Remaining indicators '
-            'are too device-specific for a general-purpose scanner. See REQUIREMENTS.md §2.'
         ),
     },
     {
@@ -144,7 +108,7 @@ def run_scan(ip: str, device_name: str = 'Unknown Device') -> dict:
     print(f'[+] {ip} reachable via {reach_method}')
 
     implemented_results = {}
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=7) as pool:
         futures = {pool.submit(fn, ip): fn for fn in IMPLEMENTED_CHECKS}
         for future in as_completed(futures):
             fn = futures[future]
@@ -152,16 +116,16 @@ def run_scan(ip: str, device_name: str = 'Unknown Device') -> dict:
                 implemented_results[fn] = future.result()
             except Exception as e:
                 implemented_results[fn] = {
-                    'check_id': 'ERR',
-                    'check_name': fn.__name__,
-                    'owasp_ref': 'N/A',
-                    'implemented': True,
-                    'status': 'ERROR',
-                    'severity': 'Unknown',
-                    'security_score': 0,
+                    'check_id':         'ERR',
+                    'check_name':       fn.__name__,
+                    'owasp_ref':        'N/A',
+                    'implemented':      True,
+                    'status':           'ERROR',
+                    'severity':         'Unknown',
+                    'security_score':   0,
                     'scan_duration_ms': 0,
-                    'findings': [],
-                    'scan_summary': {},
+                    'findings':         [],
+                    'scan_summary':     {},
                     'technical_detail': f'Check raised an exception: {e}',
                     'risk_explanation': '',
                     'remediation_steps': ['Re-run the scan. Check server logs for details.'],
@@ -180,15 +144,15 @@ def run_scan(ip: str, device_name: str = 'Unknown Device') -> dict:
     scan_id      = save_scan(ip, device_name, pct_score, results_json)
 
     return {
-        'id':             scan_id,
-        'device_ip':      ip,
-        'device_name':    device_name,
-        'scan_date':      scan_date,
-        'reach_method':   reach_method,
+        'id':                scan_id,
+        'device_ip':         ip,
+        'device_name':       device_name,
+        'scan_date':         scan_date,
+        'reach_method':      reach_method,
         'implemented_count': total,
-        'passed':         passed,
-        'failed':         failed,
-        'security_score': pct_score,
-        'total_score':    pct_score,
-        'checks':         all_checks,
+        'passed':            passed,
+        'failed':            failed,
+        'security_score':    pct_score,
+        'total_score':       pct_score,
+        'checks':            all_checks,
     }

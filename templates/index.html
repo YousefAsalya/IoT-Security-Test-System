@@ -33,7 +33,7 @@
     </div>
     <div class="form-sub">
       Enter the IP address of an IoT device to run an automated security audit against the
-      implemented OWASP IoT Top 10 checks (I1, I2, I3, I7).
+      implemented OWASP IoT Top 10 checks (I1, I2, I3, I4, I5, I7, I9).
     </div>
     <div class="form-row">
       <input type="text" id="input-ip"   placeholder="Device IP — e.g. 192.168.1.1 or 127.0.0.1" autocomplete="off"/>
@@ -510,6 +510,7 @@ function downloadPDF() {
 function buildPdfContent(data) {
   var checks  = data.checks || [];
   var impl    = checks.filter(function(c) { return c.implemented; });
+  var notImpl = checks.filter(function(c) { return !c.implemented; });
   var passed  = impl.filter(function(c) { return c.status==='PASS'; }).length;
   var failed  = impl.filter(function(c) { return c.status==='FAIL'; }).length;
   var score   = data.security_score || data.total_score || 0;
@@ -560,7 +561,7 @@ function buildPdfContent(data) {
     +     '<div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.8px">Device</div><div style="font-size:13px;font-weight:700;color:#fff;margin-top:2px">'+esc(data.device_name)+'</div></div>'
     +     '<div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.8px">IP</div><div style="font-size:12px;font-weight:700;color:#e2e8f0;margin-top:2px;font-family:monospace">'+esc(data.device_ip)+'</div></div>'
     +     '<div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.8px">Date</div><div style="font-size:10px;color:#cbd5e1;margin-top:2px">'+dt+'</div></div>'
-    +     '<div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.8px">Checks</div><div style="font-size:10px;color:#cbd5e1;margin-top:2px">'+impl.length+' implemented (I1, I2, I3, I7)</div></div>'
+    +     '<div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.8px">Checks</div><div style="font-size:10px;color:#cbd5e1;margin-top:2px">'+impl.length+' implemented ('+impl.map(function(c){return c.check_id}).join(', ')+')</div></div>'
     +     '<div style="margin-left:auto"><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Security Score</div>'
     +       '<div style="background:'+rColor+';border-radius:50%;width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">'
     +         '<span style="font-size:16px;font-weight:800;color:#fff;line-height:1">'+score+'</span>'
@@ -575,10 +576,9 @@ function buildPdfContent(data) {
     + '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;margin-bottom:16px">'
     +   '<div style="font-size:12px;font-weight:700;margin-bottom:10px;color:#0f172a;border-left:4px solid #2563eb;padding-left:10px">Scope</div>'
     +   '<p style="font-size:11px;line-height:1.7;color:#374151;margin:0">'
-    +     'This report covers <strong>4 of 10 OWASP IoT Top 10 items</strong> selected for network-based automated testing: '
-    +     '<strong>I1</strong> (Weak Credentials), <strong>I2</strong> (Insecure Network Services), '
-    +     '<strong>I3</strong> (Insecure Ecosystem Interfaces), and <strong>I7</strong> (Insecure Data Transfer). '
-    +     'Items I4, I5, I6, I8, I9, I10 were excluded — see REQUIREMENTS.md for full rationale.'
+    +     'This report covers <strong>'+impl.length+' of 10 OWASP IoT Top 10 items</strong> selected for network-based automated testing: '
+    +     impl.map(function(c){return '<strong>'+c.check_id+'</strong> ('+c.check_name.split(/[,—]/)[0].trim()+')'}).join(', ')+'. '
+    +     (notImpl.length ? 'Items '+notImpl.map(function(c){return c.check_id}).join(', ')+' were excluded — see REQUIREMENTS.md for full rationale.' : '')
     +   '</p>'
     + '</div>'
     + '<div style="font-size:12px;font-weight:700;margin-bottom:12px;color:#0f172a;border-left:4px solid #2563eb;padding-left:10px">Detailed Findings</div>'

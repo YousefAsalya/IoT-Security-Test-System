@@ -153,9 +153,10 @@ def run_check(ip: str) -> dict:
     ]
     critical_count = sum(1 for f in findings if f['risk_level'] == 'Critical')
     high_count     = sum(1 for f in findings if f['risk_level'] == 'High')
+    medium_count   = sum(1 for f in findings if f['risk_level'] == 'Medium')
 
-    status = 'FAIL' if any(f['risk_level'] in ('Critical', 'High') for f in findings) else 'PASS'
-    security_score = max(0, 100 - critical_count * 30 - high_count * 15)
+    status = 'FAIL' if (critical_count + high_count) > 0 else ('FAIL' if medium_count >= 2 else 'PASS')
+    security_score = max(0, 100 - critical_count * 30 - high_count * 15 - medium_count * 5)
 
     return {
         'check_id': 'I2',

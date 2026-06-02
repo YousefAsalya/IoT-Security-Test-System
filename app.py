@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request, render_template
 from database import init_db, get_all_scans, get_scan_by_id, delete_scan
 from scanner import run_scan
+from scanner.discovery import discover_devices
 import json
 
 app = Flask(__name__)
@@ -17,6 +18,20 @@ def add_cors(response):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/api/discover', methods=['GET'])
+def discover_network():
+    cidr = request.args.get('cidr', '').strip() or None
+    try:
+        result = discover_devices(cidr)
+        status_code = 400 if result.get('error') else 200
+        return jsonify(result), status_code
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
+    except Exception as error:
+        print(f'Discovery error: {error}')
+        return jsonify({'error': f'Device discovery failed: {str(error)}'}), 500
 
 
 @app.route('/api/scan', methods=['POST', 'OPTIONS'])
